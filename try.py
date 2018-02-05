@@ -9,23 +9,24 @@ from helper import vec2quat,quatMulti,acc2rp,rpy2rot,vecNormorlize,quat2matrix
 # rots, time= data['rots'], data['ts']
 # rots*=scale
 def caldQ(w,t_i):
-
-    dAngle = np.linalg.norm(w) * t_i
-    dAxis = w / np.linalg.norm(w)
-    return np.append(np.cos(dAngle / 2), np.multiply(dAxis, np.sin(dAngle / 2)))
+    w_norm=np.linalg.norm(w)
+    dAngle = w_norm * t_i
+    dAxis = w / w_norm
+    return np.append(np.cos(dAngle / 2), np.multiply(dAxis, np.sin(dAngle / 2)),axis=0)
 
 
 def processA(A):
-    return rpy2rot(acc2rp(A)) # return 3*3*n
+    r,p,y=acc2rp(A)
+    return rpy2rot(r,p,y) # return 3*3*n
 
 def processW(W,ts):
     _,n_data=W.shape
-    rots_W=np.zeros(3,3,n_data)
-    ti= np.append(0, ts[1:] - ts[:-1])
+    rots_W=np.zeros([3,3,n_data])
+    ti= np.append([[0]], ts[:,1:] - ts[:,:-1],axis=1)
     dq=caldQ(W,ti)
     q0=np.array([1,0,0,0])
     for i in range(n_data):
-        rots_W[:,:,i]=quat2matrix(vecNormorlize(quatMulti(q0,dq[i])))
+        rots_W[:,:,i]=quat2matrix(vecNormorlize(quatMulti(q0,dq[:,i]))).reshape(3,3)
 
     return rots_W
 
@@ -39,7 +40,7 @@ def processW(W,ts):
 def impData():
     sensitivity_A = 0.33  # unit:mv/g
     scale_A = 3.3 / 1023 / sensitivity_A
-    Az_addbias =1/scale_A
+    Az_addbias =-1/scale_A
 
     sensitivity_W = 3.33   # unit:mv/deg/s
     scale_W = 3300 / 1023 / (sensitivity_W*180/np.pi)
@@ -49,8 +50,8 @@ def impData():
     raw_vals, ts = data['vals'], data['ts']
     A,W=raw_vals[:3,:],raw_vals[3:,:]
     A_bias=np.mean(A[:,:100],axis=1)
-    A_bias[-1]=A_bias+Az_addbias
-    A=(A-A_bias)*scale_A
+    A_bias[-1]=A_bias[-1]+Az_addbias
+    A=(A-A_bias.reshape(3,1))*scale_A
     A[0:1]*=-1
 
 
@@ -59,7 +60,7 @@ def impData():
 
 
     W_bias = np.mean(W[:, :100], axis=1)
-    W = (W - W_bias) * scale_W
+    W = (W - W_bias.reshape(3,1)) * scale_W
     W[[0,1,2]]=W[[1,2,0]]
 
     return A,W,ts
@@ -95,7 +96,7 @@ def ukf(rots_A,rots_W,ts):
     x=np.array([1,0,0,0,0,0,0])
     g = np.array([0, 0, 0, 1])
 
-    t_interval=np.append(0,ts[1:] - ts[:-1])
+    t_interval=np.append([[0]], ts[:,1:] - ts[:,:-1],axis=1)
 
     _, n_measure=rots.shape
 

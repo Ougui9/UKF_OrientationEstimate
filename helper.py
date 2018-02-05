@@ -54,9 +54,9 @@ def vec2quat(vec):#n*3--->n*4
     return q
 
 def quatMulti(a,b):
-    a0, a1, a2, a3 = a
-    b0, b1, b2, b3 = b
-    q=np.zeros([1,4])
+    [a0, a1, a2, a3] = a.astype(float)
+    [b0, b1, b2, b3] = b
+    q=np.zeros(4)
     q[0],q[1],q[2],q[3]=-b1*a1 - b2*a2 - b3*a3 + b0*a0,\
                         b1*a0 + b2*a3 - b3*a2 + b0*a1,\
                         -b1*a3 + b2*a0 + b3*a1 + b0*a2,\
@@ -84,15 +84,16 @@ def vecNormorlize(x):
     return x/np.linalg.norm(x)
 
 def quat2matrix(q):
-    rot=np.zeros(3,3,len(q))
+    q=q.reshape(-1,4)
+    rot=np.zeros([3,3,len(q)])
     q=vecNormorlize(q)
-    rot[0,0]=1-2*(q(2)**2 + q(3)**2)
-    rot[0, 1] =2*(np.multiply(q(1),q(2)) + np.multiply(q(0),q(3)))
-    rot[0, 2] =2*(np.multiply(q(1),q(3)) - np.multiply(q(0),q(2)))
-    rot[1, 0] =2*(np.multiply(q(1),q(2)) - np.multiply(q(0),q(3)))
-    rot[1, 1] =1-2*(q(1)**2 + q(3)**2)
-    rot[1, 2] =2*(np.multiply(q(2),q(3)) + np.multiply(q(0),q(1)))
-    rot[2, 0] =2*(np.multiply(q(1),q(3)) + np.multiply(q(0),q(2)))
-    rot[2, 1] =2*(np.multiply(q(2),q(3)) - np.multiply(q(0),q(1)))
-    rot[2, 2] =1-2*(q(0)**2 + q(1)**2)
+    rot[0,0]=1-2*(q[0,2]**2 + q[0,3]**2)
+    rot[0, 1] =2*(np.multiply(q[0,1],q[0,2]) + np.multiply(q[0,0],q[0,3]))
+    rot[0, 2] =2*(np.multiply(q[0,1],q[0,3]) - np.multiply(q[0,0],q[0,2]))
+    rot[1, 0] =2*(np.multiply(q[0,1],q[0,2]) - np.multiply(q[0,0],q[0,3]))
+    rot[1, 1] =1-2*(q[0,1]**2 + q[0,3]**2)
+    rot[1, 2] =2*(np.multiply(q[0,2],q[0,3]) + np.multiply(q[0,0],q[0,1]))
+    rot[2, 0] =2*(np.multiply(q[0,1],q[0,3]) + np.multiply(q[0,0],q[0,2]))
+    rot[2, 1] =2*(np.multiply(q[0,2],q[0,3]) - np.multiply(q[0,0],q[0,1]))
+    rot[2, 2] =1-2*(q[0,0]**2 + q[0,1]**2)
     return rot
