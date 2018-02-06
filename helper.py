@@ -56,8 +56,8 @@ def vec2quat(vec):
     vec_unit=vec/theta
     q=np.zeros(np.array(list(vec.shape))+[1,0])
     q[0],q[1:]=np.cos(theta/2),vec_unit*np.sin(theta/2)
-    q[np.isnan(q)]=0
-    q[np.isinf(q)] = 0
+    q[np.isnan(q)]=np.finfo(float).eps
+    q[np.isinf(q)] = np.finfo(float).eps
     return q
 
 
@@ -73,10 +73,10 @@ def quatMulti(a,b):
     b0, b1, b2, b3 = b[0],b[1],b[2],b[3]
 
     q=np.zeros([4,max(a.shape[1],b.shape[1])])
-    q[0],q[1],q[2],q[3]=-b1*a1 - b2*a2 - b3*a3 + b0*a0,\
-                        b1*a0 + b2*a3 - b3*a2 + b0*a1,\
-                        -b1*a3 + b2*a0 + b3*a1 + b0*a2,\
-                        b1*a2 - b2*a1 + b3*a0 + b0*a3
+    q[0],q[1],q[2],q[3]=np.multiply(a0,b0) - np.multiply(a1,b1) - np.multiply(a2,b2) - np.multiply(a3,b3),\
+                        np.multiply(a0,b1) + np.multiply(b0,a1) + np.multiply(b3,a2) - np.multiply(b2,a3), \
+                        np.multiply(a0,b2) + np.multiply(b0,a2) + np.multiply(b1,a3) - np.multiply(b3,a1), \
+                        np.multiply(a0 , b3) + np.multiply(b0,a3) + np.multiply(b2,a1) - np.multiply(b1,a2)
     return q
 
 
@@ -128,17 +128,18 @@ def quaternion_conjugate(q):
     :param q: (4, N)
     :return: (4, N)
     '''
-    q[1:,:]*=-1
-    return q
+    qq=q.copy()
+    qq[1:,:]*=-1
+    return qq
 def quat2vec(q):
     '''
     :param q: (4, n)
     :return:(3, n)
     '''
     q=vecNormorlize(q)
-    theta=np.arccos(q[0])*2
-    sin=np.sin(theta/2)
-    vec=q[1:4]/sin*theta
-    vec[np.isnan(vec)+np.isinf(vec)]=0
+    # theta=np.arccos(q[0])*2
+    # sin=np.sin(theta/2)
+    vec=vecNormorlize(q[1:4])
+    vec[np.isnan(vec)+np.isinf(vec)]=np.finfo(float).eps
     return vec
 

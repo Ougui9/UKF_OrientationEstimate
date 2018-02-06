@@ -17,6 +17,7 @@
 
 import numpy
 import numpy.matlib as npm
+from scipy.linalg import eig
 
 # Q is a Nx4 numpy matrix and contains the quaternions to average in the rows.
 # The quaternions are arranged as (w,x,y,z), with w being the scalar
