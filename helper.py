@@ -71,7 +71,8 @@ def quatMulti(a,b):
     a=a.astype(float)
     a0, a1, a2, a3 = a[0],a[1],a[2],a[3]
     b0, b1, b2, b3 = b[0],b[1],b[2],b[3]
-    q=np.zeros([4,b.shape[1]])
+
+    q=np.zeros([4,max(a.shape[1],b.shape[1])])
     q[0],q[1],q[2],q[3]=-b1*a1 - b2*a2 - b3*a3 + b0*a0,\
                         b1*a0 + b2*a3 - b3*a2 + b0*a1,\
                         -b1*a3 + b2*a0 + b3*a1 + b0*a2,\
@@ -100,7 +101,7 @@ def vecNormorlize(x):
     :param x: (4, 1)
     :return: (4, 1)
     '''
-    return x/np.linalg.norm(x)
+    return x/np.linalg.norm(x,axis=1)
 
 def quat2matrix(q):
     '''
@@ -121,3 +122,19 @@ def quat2matrix(q):
     rot[2, 1] =2*(np.multiply(q[0,2],q[0,3]) - np.multiply(q[0,0],q[0,1]))
     rot[2, 2] =1-2*(q[0,0]**2 + q[0,1]**2)
     return rot
+
+def quaternion_conjugate(q):
+    '''
+    :param q: (N, 4)
+    :return: (N, 4)
+    '''
+    q[:,1:]*=-1
+    return q
+def quat2vec(q):
+    '''
+    :param q: (4, n)
+    :return:
+    '''
+    q=vecNormorlize(q)
+    theta=np.arccos(q[0])*2
+    sin=np.sin(theta/2)

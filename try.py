@@ -1,7 +1,8 @@
 from scipy import io
 import numpy as np
-from helper import vec2quat,quatMulti,acc2rp,rpy2rot,vecNormorlize,quat2matrix
-
+from helper import vec2quat,quatMulti,acc2rp,rpy2rot,\
+    vecNormorlize,quat2matrix,quaternion_conjugate,quat2vec
+from utils import averageQuaternions
 
 
 #
@@ -95,12 +96,15 @@ def ukf(rots_A,rots_W,ts):
     Q*=5e-8
 
     X=np.zeros([12,7])
+    Y=X.copy()
+
 
 
 
 
     n=6
     x=np.array([1,0,0,0,0,0,0])
+    xk = x.copy()
     g = np.array([0, 0, 0, 1])
 
     t_interval=np.append([[0]], ts[:,1:] - ts[:,:-1],axis=1)
@@ -110,19 +114,28 @@ def ukf(rots_A,rots_W,ts):
     for i in range(n_measure):
 
         #calulate dq
-        dq=caldQ(x[4:].reshape(3,1),t_interval[0,i].reshape(1,-1))
-        # dq[np.isnan(dq)]=0
+        w=x[4:]
+        dq=caldQ(w.reshape(3,1),t_interval[0,i].reshape(1,-1))
+
 
         #extract sigma points
         S=np.linalg.cholesky(P+Q) #S:(6, 6)
         W=np.sqrt(2*n)*S#W: (6, 6)
         W=np.append(W,-W,axis=1)#W=6*12
             #to Quater
-        X[:,:4]=quatMulti(x[:4],vec2quat(W[:3,:])).T
+        X[:,:4]=quatMulti(x[:4].reshape(4,-1),vec2quat(W[:3,:])).T
         X[:,4:]=W[3:,:].T  #X: (12, 7)
         print(1)
 
         #Tansformation of sigma pts X
+        Y[:,:4] = quatMulti(X[:, 0: 4].T, dq).T
+        Y[:,4:] =X[:,4:]+w
+
+        q2k=averageQuaternions(Y[:,:4])
+        print(1)
+        xk[:4],xk[4:]=q2k,np.mean(Y[:,4:],axis=0)
+
+        Wp[:, 0: 3] = quat2vec(quatMulti(Y[:, 0: 4], quaternion_conjugate(xk[0: 4])))
 
 
 
@@ -135,8 +148,11 @@ def ukf(rots_A,rots_W,ts):
 
 
 
-        P=np.eye(6)
-        S=np.linalg.cholesky(P)
+
+        #
+        #
+        # P=np.eye(6)
+        # S=np.linalg.cholesky(P)
 
 
     return rots_filtered
