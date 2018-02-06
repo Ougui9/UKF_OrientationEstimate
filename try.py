@@ -3,6 +3,7 @@ import numpy as np
 from helper import vec2quat,quatMulti,acc2rp,rpy2rot,\
     vecNormorlize,quat2matrix,quaternion_conjugate,quat2vec
 from utils import averageQuaternions
+from scipy.linalg import cholesky
 
 
 #
@@ -87,16 +88,26 @@ def gtData():
 
 
 
-def ukf(rots_A,rots_W,ts):
+def ukf(A,W_gyro,ts):
     #init para
     P = np.eye(6)#State Cov
+
     Q=np.eye(6)
     Q[:3, :3]+=np.ones(3)
     Q[3:, 3:] += np.ones(3)
+    R=Q.copy()
     Q*=5e-8
+
+    R[:3, :3]*=2.8e-4
+    R[3:, 3:] *=10e-4
+
+
+
 
     X=np.zeros([12,7])
     Y=X.copy()
+    Z=np.zeros([12,6])
+    Wp=np.zeros([12,6])
 
 
 
@@ -110,52 +121,74 @@ def ukf(rots_A,rots_W,ts):
     t_interval=np.append([[0]], ts[:,1:] - ts[:,:-1],axis=1)
 
     _, _,n_measure=rots.shape
+    rot_q=np.zeros([n_measure,4])
+    rots_ukf=np.zeros([3,3,n_measure])
 
     for i in range(n_measure):
+        print(i)
 
         #calulate dq
-        w=x[4:]
-        dq=caldQ(w.reshape(3,1),t_interval[0,i].reshape(1,-1))
+        omega=x[4:]
+        dq=caldQ(omega.reshape(3,1),t_interval[0,i].reshape(1,-1))
 
 
         #extract sigma points
-        S=np.linalg.cholesky(P+Q) #S:(6, 6)
+        print(P)
+        S=cholesky(P+Q) #S:(6, 6)
+
         W=np.sqrt(2*n)*S#W: (6, 6)
         W=np.append(W,-W,axis=1)#W=6*12
             #to Quater
         X[:,:4]=quatMulti(x[:4].reshape(4,-1),vec2quat(W[:3,:])).T
         X[:,4:]=W[3:,:].T  #X: (12, 7)
-        print(1)
+        # print(1)
 
         #Tansformation of sigma pts X
         Y[:,:4] = quatMulti(X[:, 0: 4].T, dq).T
-        Y[:,4:] =X[:,4:]+w
+        Y[:,4:] =X[:,4:]+omega
 
         q2k=averageQuaternions(Y[:,:4])
-        print(1)
+        # print(1)
         xk[:4],xk[4:]=q2k,np.mean(Y[:,4:],axis=0)
 
-        Wp[:, 0: 3] = quat2vec(quatMulti(Y[:, 0: 4], quaternion_conjugate(xk[0: 4])))
+        Wp[:, 0: 3] = quat2vec(quatMulti(Y[:, 0: 4].T, quaternion_conjugate(xk[0: 4].reshape(4,-1)))).T
+        Wp[:, 3: 6] =Y[:, 4:7]-xk[4:7].reshape(-1,3)
+        Pk=Wp.T.dot(Wp)/(2*n)
 
 
 
+        #Measu
+        gp = quatMulti(Y[:, 0: 4].T, quatMulti(g.reshape(4,-1), quaternion_conjugate(Y[:, 0: 4].reshape(4,-1)))).T
+        Z[:, :3] = gp[:, 1: 4]
+        Z[:, 3:] = Y[:,4:7]
+        z_mean=np.mean(Z,axis=0).reshape(1,-1)
+        z=np.append(A[:, i],W_gyro[:, i]).reshape(1,-1)
+        ve=z-z_mean
+
+        #Estimate Cov
+        Wz=Z-z_mean
+        P2z=Wz.T.dot(Wz)/(2*n)
+        P2v=P2z+R
+
+        #Cross correlation
+        Pxz=1/(2*n)*Wp.T.dot(Wz)
+        #kalman gain
+        K_gain=Pxz/P2v
+        #update P
+        P=Pk-(K_gain.dot(P2v)).dot(K_gain.T)
+        # if np.sum(np.isnan(P)+np.isinf(P))!=0:
+        #     print('!!!!')
+        #cal Kv
+        K_vel=K_gain.dot(ve.T)
+
+        #update state
+        x[:4]=quatMulti(xk[:4].reshape(4,-1),vec2quat(K_vel[:3])).reshape(4)
+        #record q
+        rot_q[i]=x[:4]
+        rots_ukf[:,:,i]=quat2matrix(rot_q[i]).reshape(3,3)
 
 
-
-
-
-
-
-
-
-
-        #
-        #
-        # P=np.eye(6)
-        # S=np.linalg.cholesky(P)
-
-
-    return rots_filtered
+    return rots_ukf
 
 if __name__=='__main__':
     A,W,ts_imu=impData()
@@ -164,7 +197,7 @@ if __name__=='__main__':
 
     rots,ts_gt=gtData()
 
-    rots_ukf=ukf(rots_A,rots_W,ts_imu)
+    rots_ukf=ukf(A,W,ts_imu)
 
 
 

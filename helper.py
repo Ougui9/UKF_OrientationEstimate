@@ -101,7 +101,7 @@ def vecNormorlize(x):
     :param x: (4, 1)
     :return: (4, 1)
     '''
-    return x/np.linalg.norm(x,axis=1)
+    return x/np.linalg.norm(x,axis=0)
 
 def quat2matrix(q):
     '''
@@ -125,16 +125,20 @@ def quat2matrix(q):
 
 def quaternion_conjugate(q):
     '''
-    :param q: (N, 4)
-    :return: (N, 4)
+    :param q: (4, N)
+    :return: (4, N)
     '''
-    q[:,1:]*=-1
+    q[1:,:]*=-1
     return q
 def quat2vec(q):
     '''
     :param q: (4, n)
-    :return:
+    :return:(3, n)
     '''
     q=vecNormorlize(q)
     theta=np.arccos(q[0])*2
     sin=np.sin(theta/2)
+    vec=q[1:4]/sin*theta
+    vec[np.isnan(vec)+np.isinf(vec)]=0
+    return vec
+
