@@ -9,10 +9,17 @@ from helper import vec2quat,quatMulti,acc2rp,rpy2rot,vecNormorlize,quat2matrix
 # rots, time= data['rots'], data['ts']
 # rots*=scale
 def caldQ(w,t_i):
-    w_norm=np.linalg.norm(w)
+    '''
+    :param w: 3,n,
+    :param t_i: 1,n
+    :return: dq: 4,1
+    '''
+    w_norm=np.linalg.norm(w,axis=0)
     dAngle = w_norm * t_i
     dAxis = w / w_norm
-    return np.append(np.cos(dAngle / 2), np.multiply(dAxis, np.sin(dAngle / 2)),axis=0)
+    dq=np.append(np.cos(dAngle / 2), np.multiply(dAxis, np.sin(dAngle / 2)),axis=0)
+    dq[np.isnan(dq)]=0
+    return dq
 
 
 def processA(A):
@@ -26,7 +33,7 @@ def processW(W,ts):
     dq=caldQ(W,ti)
     q0=np.array([1,0,0,0])
     for i in range(n_data):
-        rots_W[:,:,i]=quat2matrix(vecNormorlize(quatMulti(q0,dq[:,i]))).reshape(3,3)
+        rots_W[:,:,i]=quat2matrix(vecNormorlize(quatMulti(q0.reshape(4,-1),dq[:,i].reshape(4,-1)))).reshape(3,3)
 
     return rots_W
 
@@ -80,7 +87,7 @@ def gtData():
 
 
 def ukf(rots_A,rots_W,ts):
-    #init pare
+    #init para
     P = np.eye(6)#State Cov
     Q=np.eye(6)
     Q[:3, :3]+=np.ones(3)
@@ -98,22 +105,22 @@ def ukf(rots_A,rots_W,ts):
 
     t_interval=np.append([[0]], ts[:,1:] - ts[:,:-1],axis=1)
 
-    _, n_measure=rots.shape
+    _, _,n_measure=rots.shape
 
     for i in range(n_measure):
 
         #calulate dq
-        dq=caldQ(x[4:],t_interval[i])
+        dq=caldQ(x[4:].reshape(3,1),t_interval[0,i].reshape(1,-1))
         # dq[np.isnan(dq)]=0
 
         #extract sigma points
-        S=np.linalg.cholesky(P+Q) #S=6*6
-        W=np.sqrt(2*n)*S
+        S=np.linalg.cholesky(P+Q) #S:(6, 6)
+        W=np.sqrt(2*n)*S#W: (6, 6)
         W=np.append(W,-W,axis=1)#W=6*12
             #to Quater
-        X[:,:4]=quatMulti(x,vec2quat(W))
-        X[:,4:]=W[:,3:]
-        X=X.T
+        X[:,:4]=quatMulti(x[:4],vec2quat(W[:3,:])).T
+        X[:,4:]=W[3:,:].T  #X: (12, 7)
+        print(1)
 
         #Tansformation of sigma pts X
 

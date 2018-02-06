@@ -46,17 +46,32 @@ def acc2rp(acc):
     y=np.zeros_like(r)
     return r,p,y
 
-def vec2quat(vec):#n*3--->n*4
-    theta =np.linalg.norm(vec)
+def vec2quat(vec):
+    '''
+    :param vec: (3, n)
+    :return:(4, n)
+    '''
+
+    theta =np.linalg.norm(vec,axis=0)
     vec_unit=vec/theta
-    q=np.zeros(vec.shape[1]+1)
+    q=np.zeros(np.array(list(vec.shape))+[1,0])
     q[0],q[1:]=np.cos(theta/2),vec_unit*np.sin(theta/2)
+    q[np.isnan(q)]=0
+    q[np.isinf(q)] = 0
     return q
 
+
+
 def quatMulti(a,b):
-    [a0, a1, a2, a3] = a.astype(float)
-    [b0, b1, b2, b3] = b
-    q=np.zeros(4)
+    '''
+    :param a: (4, 1)
+    :param b: (4, n)
+    :return:(4, n)
+    '''
+    a=a.astype(float)
+    a0, a1, a2, a3 = a[0],a[1],a[2],a[3]
+    b0, b1, b2, b3 = b[0],b[1],b[2],b[3]
+    q=np.zeros([4,b.shape[1]])
     q[0],q[1],q[2],q[3]=-b1*a1 - b2*a2 - b3*a3 + b0*a0,\
                         b1*a0 + b2*a3 - b3*a2 + b0*a1,\
                         -b1*a3 + b2*a0 + b3*a1 + b0*a2,\
@@ -81,9 +96,18 @@ def rpy2rot(r,p,y):
     return rot
 
 def vecNormorlize(x):
+    '''
+    :param x: (4, 1)
+    :return: (4, 1)
+    '''
     return x/np.linalg.norm(x)
 
 def quat2matrix(q):
+    '''
+
+    :param q:(4, n)
+    :return:(3, 3, n)
+    '''
     q=q.reshape(-1,4)
     rot=np.zeros([3,3,len(q)])
     q=vecNormorlize(q)
