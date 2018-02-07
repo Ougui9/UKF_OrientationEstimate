@@ -35,7 +35,7 @@ def processW(W,ts):
     dq=caldQ(W,ti)
     q0=np.array([1,0,0,0])
     for i in range(n_data):
-        rots_W[:,:,i]=quat2matrix(vecNormorlize(quatMulti(q0.reshape(4,-1),dq[:,i].reshape(4,-1)))).reshape(3,3)
+        rots_W[:,:,i]=quat2matrix(vecNormorlize(quatMulti(q0.reshape(4,-1),dq[:,i].reshape(4,-1))).T).reshape(3,3)
 
     return rots_W
 
@@ -185,7 +185,7 @@ def ukf(A,W_gyro,ts):
         x[:4]=quatMulti(xk[:4].reshape(4,-1),vec2quat(K_vel[:3])).reshape(4)
         #record q
         rot_q[i]=x[:4]
-        rots_ukf[:,:,i]=quat2matrix(rot_q[i]).reshape(3,3)
+        rots_ukf[:,:,i]=quat2matrix(rot_q[i].reshape(-1,4)).reshape(3,3)
 
 
     return rots_ukf

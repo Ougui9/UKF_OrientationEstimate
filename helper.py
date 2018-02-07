@@ -51,11 +51,12 @@ def vec2quat(vec):
     :param vec: (3, n)
     :return:(4, n)
     '''
-
-    theta =np.linalg.norm(vec,axis=0)
-    vec_unit=vec/theta
+    theta=np.sum(vec**2,axis=1).reshape(-1,1)
+    norm =np.linalg.norm(vec,axis=0)
+    vec_unit=np.divide(vec,norm)
     q=np.zeros(np.array(list(vec.shape))+[1,0])
     q[0],q[1:]=np.cos(theta/2),vec_unit*np.sin(theta/2)
+    # q=vecNormorlize(q)
     q[np.isnan(q)]=0
     q[np.isinf(q)] = 0
     return q
@@ -77,6 +78,9 @@ def quatMulti(a,b):
                         np.multiply(a0,b1) + np.multiply(b0,a1) + np.multiply(b3,a2) - np.multiply(b2,a3), \
                         np.multiply(a0,b2) + np.multiply(b0,a2) + np.multiply(b1,a3) - np.multiply(b3,a1), \
                         np.multiply(a0 , b3) + np.multiply(b0,a3) + np.multiply(b2,a1) - np.multiply(b1,a2)
+    # q=vecNormorlize(q)
+    # q[np.isnan(q)] = 0
+    # q[np.isinf(q)] = 0
     return q
 
 
@@ -105,24 +109,25 @@ def vecNormorlize(x):
     y[np.isnan(y) + np.isinf(y)] = 0
     return y
 
-def quat2matrix(q):
+def quat2matrix(qq):
     '''
 
-    :param q:(4, n)
+    :param q:(n, 4)
     :return:(3, 3, n)
     '''
-    q=q.reshape(-1,4)
+    # q=q.reshape(-1,4)
+    q=qq.copy()
     rot=np.zeros([3,3,len(q)])
-    q=vecNormorlize(q)
-    rot[0,0]=1-2*(q[0,2]**2 + q[0,3]**2)
+    q=vecNormorlize(q.T).T
+    rot[0,0]=(q[0,0]**2 + q[0,1]**2)-(q[0,2]**2 + q[0,3]**2)
     rot[0, 1] =2*(np.multiply(q[0,1],q[0,2]) + np.multiply(q[0,0],q[0,3]))
     rot[0, 2] =2*(np.multiply(q[0,1],q[0,3]) - np.multiply(q[0,0],q[0,2]))
     rot[1, 0] =2*(np.multiply(q[0,1],q[0,2]) - np.multiply(q[0,0],q[0,3]))
-    rot[1, 1] =1-2*(q[0,1]**2 + q[0,3]**2)
+    rot[1, 1] =(q[0,0]**2 - q[0,1]**2)+(q[0,2]**2 - q[0,3]**2)
     rot[1, 2] =2*(np.multiply(q[0,2],q[0,3]) + np.multiply(q[0,0],q[0,1]))
     rot[2, 0] =2*(np.multiply(q[0,1],q[0,3]) + np.multiply(q[0,0],q[0,2]))
     rot[2, 1] =2*(np.multiply(q[0,2],q[0,3]) - np.multiply(q[0,0],q[0,1]))
-    rot[2, 2] =1-2*(q[0,0]**2 + q[0,1]**2)
+    rot[2, 2] =(q[0,0]**2 - q[0,1]**2)-(q[0,2]**2 - q[0,3]**2)
     return rot
 
 def quaternion_conjugate(q):
@@ -133,15 +138,16 @@ def quaternion_conjugate(q):
     qq=q.copy()
     qq[1:,:]*=-1
     return qq
-def quat2vec(q):
+def quat2vec(qq):
     '''
     :param q: (4, n)
     :return:(3, n)
     '''
+    q=qq.copy()
     q=vecNormorlize(q)
-    # theta=np.arccos(q[0])*2
-    # sin=np.sin(theta/2)
-    # vec=vecNormorlize(q[1:4])
-    # vec[np.isnan(vec)+np.isinf(vec)]=0
-    return q[1:4]
+    theta=np.arccos(q[0])*2
+    sin=np.sin(theta/2)
+    vec=q[1:4]/sin
+    vec[np.isnan(vec)+np.isinf(vec)]=0
+    return vec
 
