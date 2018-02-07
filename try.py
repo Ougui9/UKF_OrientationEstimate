@@ -20,7 +20,7 @@ def caldQ(w,t_i):
     dAngle = w_norm * t_i
     dAxis = w / w_norm
     dq=np.append(np.cos(dAngle / 2), np.multiply(dAxis, np.sin(dAngle / 2)),axis=0)
-    dq[np.isnan(dq)]=np.finfo(float).eps
+    dq[np.isnan(dq)+np.isinf(dq)]=0
     return dq
 
 
@@ -133,7 +133,7 @@ def ukf(A,W_gyro,ts):
 
 
         #extract sigma points
-        print(P)
+        # print(P)
         S=cholesky(P+Q) #S:(6, 6)
 
         W=np.sqrt(2*n)*S#W: (6, 6)
@@ -171,9 +171,9 @@ def ukf(A,W_gyro,ts):
         Pvv=Pzz+R
 
         #Cross correlation
-        Pxz=1/(2*n)*Wp.T.dot(Wz)
+        Pxz=1/(2*n)*(Wp.T).dot(Wz)
         #kalman gain
-        K_gain=Pxz/Pvv
+        K_gain=Pxz*np.linalg.inv(Pvv)
         #update P
         P=Pk-(K_gain.dot(Pvv)).dot(K_gain.T)
         # if np.sum(np.isnan(P)+np.isinf(P))!=0:

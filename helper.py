@@ -56,8 +56,8 @@ def vec2quat(vec):
     vec_unit=vec/theta
     q=np.zeros(np.array(list(vec.shape))+[1,0])
     q[0],q[1:]=np.cos(theta/2),vec_unit*np.sin(theta/2)
-    q[np.isnan(q)]=np.finfo(float).eps
-    q[np.isinf(q)] = np.finfo(float).eps
+    q[np.isnan(q)]=0
+    q[np.isinf(q)] = 0
     return q
 
 
@@ -101,7 +101,9 @@ def vecNormorlize(x):
     :param x: (4, 1)
     :return: (4, 1)
     '''
-    return x/np.linalg.norm(x,axis=0)
+    y=x/np.linalg.norm(x,axis=0)
+    y[np.isnan(y) + np.isinf(y)] = 0
+    return y
 
 def quat2matrix(q):
     '''
@@ -139,7 +141,7 @@ def quat2vec(q):
     q=vecNormorlize(q)
     # theta=np.arccos(q[0])*2
     # sin=np.sin(theta/2)
-    vec=vecNormorlize(q[1:4])
-    vec[np.isnan(vec)+np.isinf(vec)]=np.finfo(float).eps
-    return vec
+    # vec=vecNormorlize(q[1:4])
+    # vec[np.isnan(vec)+np.isinf(vec)]=0
+    return q[1:4]
 
