@@ -36,7 +36,8 @@ def processW(W,ts):
     dq=caldQ(W,ti)
     q0=np.array([1,0,0,0])
     for i in range(n_data):
-        rots_W[:,:,i]=quat2matrix(vecNormorlize(quatMulti(q0.reshape(4,-1),dq[:,i].reshape(4,-1))).T).reshape(3,3)
+        q0=vecNormorlize(quatMulti(q0.reshape(4,-1),dq[:,i].reshape(4,-1))).T
+        rots_W[:,:,i]=quat2matrix(q0).reshape(3,3).T
 
     return rots_W
 
@@ -59,7 +60,8 @@ def impData():
     data = io.loadmat('./imu/imuRaw1.mat')
     raw_vals, ts = data['vals'].astype(float), data['ts'].astype(float)
     A,W=raw_vals[:3,:],raw_vals[3:,:]
-    A_bias=np.mean(A[:,:100],axis=1)
+    # A[0:1] *= -1
+    A_bias=np.mean(A[:,:150],axis=1)
     A_bias[-1]=A_bias[-1]+Az_addbias
     # A[0:1] *= -1
     A=(A-A_bias.reshape(3,1))*scale_A
@@ -70,7 +72,7 @@ def impData():
 
 
 
-    W_bias = np.mean(W[:, :100], axis=1)
+    W_bias = np.mean(W[:, :150], axis=1)
     W = (W - W_bias.reshape(3,1)) * scale_W
     W[[0,1,2]]=W[[1,2,0]]
 
@@ -82,6 +84,7 @@ def gtData():
 
     data=io.loadmat('./vicon/viconRot1.mat')
     rots, ts_gt= data['rots'], data['ts']
+
 
 
     return rots,ts_gt
@@ -175,7 +178,7 @@ def ukf(A,W_gyro,ts):
         #Cross correlation
         Pxz=1/(2*n)*(Wp.T).dot(Wz)
         #kalman gain
-        K_gain=Pxz*np.linalg.inv(Pvv)
+        K_gain=Pxz.dot(np.linalg.inv(Pvv))
         #update P
         P=Pk-(K_gain.dot(Pvv)).dot(K_gain.T)
         # P=(P+P.T)/2
@@ -194,12 +197,19 @@ def ukf(A,W_gyro,ts):
 
     return rots_ukf
 
+# def processGt(ts_imu,ts_gt):
+#     ts_gt_ind=0
+#     while(ts_gt[ts_gt_ind]<cam)
+
 if __name__=='__main__':
     A,W,ts_imu=impData()
     rots_A=processA(A)
     rots_W=processW(W,ts_imu)
 
     rots,ts_gt=gtData()
+    # rots=processGt(ts_imu,ts_gt)
+
+
     plotRots(rots_A,rots_W,rots,ts_imu,ts_gt.T)
 
     rots_ukf=ukf(A,W,ts_imu)
