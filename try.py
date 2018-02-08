@@ -1,9 +1,10 @@
 from scipy import io
 import numpy as np
 from helper import vec2quat,quatMulti,acc2rp,rpy2rot,\
-    vecNormorlize,quat2matrix,quaternion_conjugate,quat2vec
+    vecNormorlize,quat2matrix,quaternion_conjugate,quat2vec,plotRots
 from utils import averageQuaternions
 from scipy.linalg import cholesky
+from rotplot import rotplot
 
 
 #
@@ -51,17 +52,18 @@ def impData():
     scale_A = 3.3 / 1023 / sensitivity_A
     Az_addbias =-1/scale_A
 
-    sensitivity_W = 3.33   # unit:mv/deg/s
+    sensitivity_W = 3.3   # unit:mv/deg/s
     scale_W = 3300 / 1023 / (sensitivity_W*180/np.pi)
 
 
     data = io.loadmat('./imu/imuRaw1.mat')
-    raw_vals, ts = data['vals'], data['ts']
+    raw_vals, ts = data['vals'].astype(float), data['ts'].astype(float)
     A,W=raw_vals[:3,:],raw_vals[3:,:]
     A_bias=np.mean(A[:,:100],axis=1)
     A_bias[-1]=A_bias[-1]+Az_addbias
+    # A[0:1] *= -1
     A=(A-A_bias.reshape(3,1))*scale_A
-    A[0:1]*=-1
+    # A[0:1] *= -1
 
 
 
@@ -176,6 +178,8 @@ def ukf(A,W_gyro,ts):
         K_gain=Pxz*np.linalg.inv(Pvv)
         #update P
         P=Pk-(K_gain.dot(Pvv)).dot(K_gain.T)
+        # P=(P+P.T)/2
+        # P+=np.finfo(float).eps*np.eye(n)
         # if np.sum(np.isnan(P)+np.isinf(P))!=0:
         #     print('!!!!')
         #cal Kv
@@ -196,6 +200,7 @@ if __name__=='__main__':
     rots_W=processW(W,ts_imu)
 
     rots,ts_gt=gtData()
+    plotRots(rots_A,rots_W,rots,ts_imu,ts_gt.T)
 
     rots_ukf=ukf(A,W,ts_imu)
 

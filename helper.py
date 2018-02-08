@@ -1,5 +1,6 @@
 from scipy import io
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 
@@ -150,4 +151,40 @@ def quat2vec(qq):
     # vec=q[1:4]/sin
     # vec[np.isnan(vec)+np.isinf(vec)]=0
     return q[1:4]
+
+
+
+
+def rot2rpy(rot):
+    '''
+    :param rot: (3, 3, n)
+    :return: (3, n)
+    '''
+    rpy=np.zeros([3,rot.shape[2]])
+    rpy[0]=np.arctan2(rot[1,0,:],rot[0,0,:])
+    rpy[1] = np.arctan2(-rot[2, 0, :], np.sqrt(rot[2, 1, :]**2+rot[2,2,:]**2))
+    rpy[2] = np.arctan2(rot[2, 1, :], rot[2, 2, :])
+    return rpy
+
+def plotRots(a_rots,w_rots,v_rots,t_imu,tgt):
+    ts_imu=t_imu.T
+    rpy_a = rot2rpy(a_rots)
+    rpy_w = rot2rpy(w_rots)
+    rpy_v = rot2rpy(v_rots)
+
+    f, ax = plt.subplots(3, sharex=True)
+    ax[0].plot(ts_imu,rpy_a[0],'r',label='a')
+    # ax[0] .plot(ts_imu,rpy_w[0], 'C1', label='w')
+    ax[0] .plot(tgt,rpy_v[0], 'b', label='v')
+    ax[0].set_title('Roll')
+    ax[1].plot(ts_imu,rpy_a[1], 'r', label='a')
+    # ax[1].plot(ts_imu,rpy_w[1], 'C1', label='w')
+    ax[1].plot(tgt,rpy_v[1], 'b', label='v')
+    ax[1].set_title('Pitch')
+    ax[2].plot(ts_imu,rpy_a[2], 'r', label='a')
+    # ax[2].plot(ts_imu,rpy_w[2], 'C1', label='w')
+    ax[2].plot(tgt,rpy_v[2], 'b', label='v')
+    ax[2].set_title('Yaw')
+    ax.legend()
+    print(1)
 
