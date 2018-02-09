@@ -125,7 +125,7 @@ def ukf(A,W_gyro,ts):
 
     t_interval=np.append([[0]], ts[:,1:] - ts[:,:-1],axis=1)
 
-    _, _,n_measure=rots.shape
+    _, n_measure=A.shape
     rot_q=np.zeros([n_measure,4])
     rots_ukf=np.zeros([3,3,n_measure])
 
@@ -190,9 +190,10 @@ def ukf(A,W_gyro,ts):
 
         #update state
         x[:4]=quatMulti(xk[:4].reshape(4,-1),vec2quat(K_vel[:3])).reshape(4)
+        x[4:]=xk[4:]+K_vel[3:6].T
         #record q
         rot_q[i]=x[:4]
-        rots_ukf[:,:,i]=quat2matrix(rot_q[i].reshape(-1,4)).reshape(3,3)
+        rots_ukf[:,:,i]=quat2matrix(rot_q[i].reshape(-1,4)).reshape(3,3).T
 
 
     return rots_ukf
@@ -210,10 +211,11 @@ if __name__=='__main__':
     # rots=processGt(ts_imu,ts_gt)
 
 
-    plotRots(rots_A,rots_W,rots,ts_imu,ts_gt.T)
+    # plotRots(rots_A,rots_W,rots,ts_imu,ts_gt.T)
 
     rots_ukf=ukf(A,W,ts_imu)
-
+    plotRots(rots_ukf, rots_W, rots, ts_imu, ts_gt.T)
+    print(1)
 
 
 

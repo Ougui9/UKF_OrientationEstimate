@@ -17,7 +17,7 @@
 
 import numpy
 import numpy.matlib as npm
-from scipy.linalg import eig
+from scipy.sparse.linalg import eigs
 
 # Q is a Nx4 numpy matrix and contains the quaternions to average in the rows.
 # The quaternions are arranged as (w,x,y,z), with w being the scalar
@@ -41,3 +41,6 @@ def averageQuaternions(Q):
     eigenVectors = eigenVectors[:,eigenValues.argsort()[::-1]]
     # return the real part of the largest eigenvector (has only real part)
     return numpy.real(eigenVectors[:,0].A1)
+    # _, vec = eigs(A, k=1)
+    #
+    # return numpy.real(vec[:,0])
