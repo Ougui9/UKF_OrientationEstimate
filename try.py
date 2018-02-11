@@ -4,6 +4,8 @@ from helper import vec2quat,quatMulti,acc2rp,rpy2rot,\
     vecNormorlize,quat2matrix,quaternion_conjugate,quat2vec,plotRots
 from utils import averageQuaternions
 from scipy.linalg import cholesky
+import matplotlib.pyplot as plt
+from PIL import  Image
 from rotplot import rotplot
 
 
@@ -11,6 +13,120 @@ from rotplot import rotplot
 # data=io.loadmat('./vicon/viconRot1.mat')
 # rots, time= data['rots'], data['ts']
 # rots*=scale
+def Stereosphere2plane(pos_sp):
+    x = np.ones_like(pos_sp[0]) * 120 / np.tan(np.pi / 8)*0.5
+    # pos_projed=pos_sp[1:3]/(1-pos_sp[0]*0.6)
+    # pos_projed[[0,1],:]=pos_projed[[1,0],:]
+    pos_projed=np.zeros_like(pos_sp[1:3])
+    pos_projed[0] = pos_sp[1]*(x-pos_sp[0]) / (1 + pos_sp[0])+pos_sp[1]
+    pos_projed[1] = pos_sp[2] * (x - pos_sp[0]) / (1 + pos_sp[0]) + pos_sp[2]
+    # pos_projed = pos_sp[1:3]
+    return pos_projed
+
+
+
+def plane2sphere(pos,rot):
+    # x0=np.array([1,0,0]).reshape(1,3)
+    # Vfoc=np.pi/4
+    y,z=pos[0],pos[1]#y:col, z:row
+
+
+    x=np.ones_like(y)*120/np.tan(np.pi/8)
+    a=np.sqrt(x**2+y**2)
+    b=np.sqrt(a**2+z**2)
+    pz=z/b
+    # c=a/b
+    py=y/b
+    # px=py/y*x
+    # px[np.isnan(px)]=1.
+    px=x*np.sqrt(1-pz**2)/a
+    pos_sp=np.append(np.append(px.reshape(1,-1),py.reshape(1,-1),axis=0),pz.reshape(1,-1),axis=0)
+    pos_sp=rot.T.dot(pos_sp)
+
+    return pos_sp
+
+def findClosestTime(ts_cam_current,ts_imu):
+    imu_ind=0
+    _,n_IMUdata=ts_imu.shape
+    while ts_imu[0,imu_ind]<ts_cam_current:
+        imu_ind+=1
+        if imu_ind>=n_IMUdata:
+            imu_ind -= 1
+            break
+    return imu_ind
+
+
+
+def panarama(rots_ukf,ts_imu,Ims,ts_cam):
+
+    H_re=1600
+    W_re=3000
+    Ims=np.flip(Ims,axis=1)
+    # n_im,_=ts_cam.shape
+    res_im=np.zeros([H_re,W_re,3]).astype(np.uint8)
+    im_row,im_col,_,n_im=Ims.shape
+
+    # xx=np.arange(0,im_col,1.)
+    # yy=np.arange(0,im_row,1.)
+    # grid=np.meshgrid(xx,yy)
+    pos=np.append(np.where(Ims[:,:,0,0]>=0)[1].reshape(1,-1)-im_col/2,np.where(Ims[:,:,0,0]>=0)[0].reshape(1,-1)-im_row/2,axis=0)#x,y
+
+    # plt.axis([0, W_re, 0, H_re])
+    # plt.ion()
+    for i in range(400,n_im):
+        print(i)
+        # if i==500:
+        #     print(i)
+        #     plt.show()
+        i_imu = findClosestTime(ts_cam[0,i], ts_imu)
+
+        pos_sp=plane2sphere(pos,rots_ukf[:,:,i_imu])
+        coor_projed=Stereosphere2plane(pos_sp)# range[-1,1]^2
+        coor_projed*=4
+        coor_projed[0] += W_re / 2
+        coor_projed[1] += H_re / 2
+        coor_projed = np.around(coor_projed, decimals=0).astype(int)
+        ind_used=(coor_projed[0] < W_re ) * (coor_projed[0] >= 0)*(coor_projed[1]<H_re)*(coor_projed[1]>=0)
+        coor_projed=coor_projed[:,ind_used]
+        pos_localloop=pos[:,ind_used].astype(int)
+        pos_localloop[1]+=int(im_row / 2)
+        pos_localloop[0] += int(im_col / 2)
+
+
+
+
+        res_im[coor_projed[1],coor_projed[0],:]=Ims[pos_localloop[1],pos_localloop[0],:,i]
+        # res_im=np.flip(res_im,axis=1)
+        im=Image.fromarray(np.flip(res_im,axis=1))
+        im.save('./reIm/%04d.jpg'%(i))
+        # plt.imshow(res_im)
+    #     plt.pause(0.005)
+    #     print(i)
+    #
+    # while True:
+    #     plt.pause(0.05)
+    #
+    #     print (1)
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.scatter(pos_sp[0], pos_sp[1], pos_sp[2], c='r', marker='o')
+
+        # coor_projed+=1.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def caldQ(w,t_i):
     '''
     :param w: 3,n,
@@ -181,10 +297,7 @@ def ukf(A,W_gyro,ts):
         K_gain=Pxz.dot(np.linalg.inv(Pvv))
         #update P
         P=Pk-(K_gain.dot(Pvv)).dot(K_gain.T)
-        # P=(P+P.T)/2
-        # P+=np.finfo(float).eps*np.eye(n)
-        # if np.sum(np.isnan(P)+np.isinf(P))!=0:
-        #     print('!!!!')
+
         #cal Kv
         K_vel=K_gain.dot(ve.T)
 
@@ -202,6 +315,14 @@ def ukf(A,W_gyro,ts):
 #     ts_gt_ind=0
 #     while(ts_gt[ts_gt_ind]<cam)
 
+def impIm():
+    data=io.loadmat('./cam/cam1.mat')
+    Ims, ts = data['cam'], data['ts']
+    return Ims,ts
+
+
+
+
 if __name__=='__main__':
     A,W,ts_imu=impData()
     rots_A=processA(A)
@@ -214,8 +335,12 @@ if __name__=='__main__':
     # plotRots(rots_A,rots_W,rots,ts_imu,ts_gt.T)
 
     rots_ukf=ukf(A,W,ts_imu)
-    plotRots(rots_ukf, rots_W, rots, ts_imu, ts_gt.T)
+    # plotRots(rots_A, rots_W,rots_ukf, rots, ts_imu, ts_gt.T)
+
+    Ims,ts_cam=impIm()
+    panarama(rots_ukf,ts_imu,Ims,ts_cam)
     print(1)
+
 
 
 

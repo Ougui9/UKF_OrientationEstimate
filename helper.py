@@ -42,8 +42,8 @@ import matplotlib.pyplot as plt
 
 def acc2rp(acc):
     # r=-np.arctan(acc[1]/np.sqrt(acc[0]**2+acc[2]**2))
-    r = -np.arctan(acc[1] / acc[2])
-    p=np.arctan(acc[0]/np.sqrt(acc[1]**2+acc[2]**2))
+    r = -np.arctan2(acc[1] , acc[2])
+    p=np.arctan2(acc[0],np.sqrt(acc[1]**2+acc[2]**2))
     y=np.zeros_like(r)
     return r,p,y
 
@@ -166,27 +166,32 @@ def rot2rpy(rot):
     rpy[0] = np.arctan2(rot[2, 1, :], rot[2, 2, :])
     return rpy
 
-def plotRots(a_rots,w_rots,v_rots,t_imu,tgt):
+def plotRots(a_rots,w_rots,ukf_rots,v_rots,t_imu,tgt):
     ts_imu=t_imu.T
     rpy_a = rot2rpy(a_rots)
     rpy_w = rot2rpy(w_rots)
+    rpy_ukf = rot2rpy(ukf_rots)
     rpy_v = rot2rpy(v_rots)
 
     f, ax = plt.subplots(3, sharex=True)
     ax[0].plot(ts_imu,rpy_a[0],'r',label='a')
     ax[0] .plot(ts_imu,rpy_w[0], 'g', label='w')
+    ax[0].plot(ts_imu, rpy_ukf[0], 'y', label='ukf')
     ax[0] .plot(tgt,rpy_v[0], 'b', label='v')
     ax[0].set_title('Roll')
     ax[0].legend()
     ax[1].plot(ts_imu,rpy_a[1], 'r', label='a')
     ax[1].plot(ts_imu,rpy_w[1], 'g', label='w')
+    ax[1].plot(ts_imu, rpy_ukf[1], 'y', label='ukf')
     ax[1].plot(tgt,rpy_v[1], 'b', label='v')
     ax[1].set_title('Pitch')
     ax[1].legend()
     ax[2].plot(ts_imu,rpy_a[2], 'r', label='a')
     ax[2].plot(ts_imu,rpy_w[2], 'g', label='w')
+    ax[2].plot(ts_imu, rpy_ukf[2], 'y', label='ukf')
     ax[2].plot(tgt,rpy_v[2], 'b', label='v')
     ax[2].set_title('Yaw')
     ax[2].legend()
+    plt.show()
     print(1)
 
