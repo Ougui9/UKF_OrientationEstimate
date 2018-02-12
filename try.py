@@ -1,18 +1,21 @@
 from scipy import io
 import numpy as np
 from helper import vec2quat,quatMulti,acc2rp,rpy2rot,\
-    vecNormorlize,quat2matrix,quaternion_conjugate,quat2vec,plotRots
+    vecNormorlize,quat2matrix,quaternion_conjugate,quat2vec,plotRots,rot2rpy
 from utils import averageQuaternions
 from scipy.linalg import cholesky
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from PIL import  Image
-from rotplot import rotplot
+# from rotplot import rotplot
 
 
-#
-# data=io.loadmat('./vicon/viconRot1.mat')
-# rots, time= data['rots'], data['ts']
-# rots*=scale
+
+
+dataset=1
+
+plotPanarama=False
+# weightedUKF=True
+
 def Stereosphere2plane(pos_sp):
     x = np.ones_like(pos_sp[0]) * 120 / np.tan(np.pi / 8)*0.5
     # pos_projed=pos_sp[1:3]/(1-pos_sp[0]*0.6)
@@ -173,7 +176,7 @@ def impData():
     scale_W = 3300 / 1023 / (sensitivity_W*180/np.pi)
 
 
-    data = io.loadmat('./imu/imuRaw1.mat')
+    data = io.loadmat('./imu/imuRaw%d.mat'%dataset)
     raw_vals, ts = data['vals'].astype(float), data['ts'].astype(float)
     A,W=raw_vals[:3,:],raw_vals[3:,:]
     # A[0:1] *= -1
@@ -188,7 +191,7 @@ def impData():
 
 
 
-    W_bias = np.mean(W[:, :150], axis=1)
+    W_bias = np.mean(W[:, :200], axis=1)
     W = (W - W_bias.reshape(3,1)) * scale_W
     W[[0,1,2]]=W[[1,2,0]]
 
@@ -198,7 +201,7 @@ def impData():
 def gtData():
 
 
-    data=io.loadmat('./vicon/viconRot1.mat')
+    data=io.loadmat('./vicon/viconRot%d.mat'%dataset)
     rots, ts_gt= data['rots'], data['ts']
 
 
@@ -207,20 +210,24 @@ def gtData():
 
 
 
+def iniPara():
+    P = np.eye(6)  # State Cov
+
+    Q = np.eye(6)
+    Q[:3, :3] += np.ones(3)
+    Q[3:, 3:] += np.ones(3)
+    R = Q.copy()
+    # Q *= 5e-8
+    Q[:3, :3] *= 5e-8
+
+    R[:3, :3] *= 2.8e-4
+    R[3:, 3:] *= 10e-4
+    return P,Q,R
 
 
 def ukf(A,W_gyro,ts):
     #init para
-    P = np.eye(6)#State Cov
-
-    Q=np.eye(6)
-    Q[:3, :3]+=np.ones(3)
-    Q[3:, 3:] += np.ones(3)
-    R=Q.copy()
-    Q*=5e-8
-
-    R[:3, :3]*=2.8e-4
-    R[3:, 3:] *=10e-4
+    P,Q,R=iniPara()
 
 
 
@@ -278,7 +285,7 @@ def ukf(A,W_gyro,ts):
 
 
 
-        #Measu
+
         gp = quatMulti(Y[:, 0: 4].T, quatMulti(g.reshape(4,-1), quaternion_conjugate(Y[:, 0: 4].T))).T
         Z[:, :3] = gp[:, 1: 4]
         Z[:, 3:] = Y[:,4:7]
@@ -316,11 +323,16 @@ def ukf(A,W_gyro,ts):
 #     while(ts_gt[ts_gt_ind]<cam)
 
 def impIm():
-    data=io.loadmat('./cam/cam1.mat')
+    data=io.loadmat('./cam/cam%d.mat'%dataset)
     Ims, ts = data['cam'], data['ts']
     return Ims,ts
 
-
+def weightUKF(rots_W,rots_A,rots_ukf):
+    rpy_ukf = rot2rpy(rots_ukf)
+    rpy_ukf[-1] = rot2rpy(rots_W)[-1] * 0.6 + rpy_ukf[-1] * 0.3
+    rpy_ukf[:2] = rot2rpy(rots_A)[:2] * 0.6 + rpy_ukf[:2] * 0.9 - rot2rpy(rots_W)[:2] * 0.5
+    rots_ukf = rpy2rot(rpy_ukf[0], rpy_ukf[1], rpy_ukf[2])
+    return rots_ukf
 
 
 if __name__=='__main__':
@@ -329,17 +341,16 @@ if __name__=='__main__':
     rots_W=processW(W,ts_imu)
 
     rots,ts_gt=gtData()
-    # rots=processGt(ts_imu,ts_gt)
 
-
-    # plotRots(rots_A,rots_W,rots,ts_imu,ts_gt.T)
 
     rots_ukf=ukf(A,W,ts_imu)
-    # plotRots(rots_A, rots_W,rots_ukf, rots, ts_imu, ts_gt.T)
+    rots_ukf=weightUKF(rots_W,rots_A,rots_ukf)
+    plotRots(rots_A, rots_W,rots_ukf, rots, ts_imu, ts_gt.T)
 
-    Ims,ts_cam=impIm()
-    panarama(rots_ukf,ts_imu,Ims,ts_cam)
-    print(1)
+    if plotPanarama:
+        Ims,ts_cam=impIm()
+        panarama(rots_ukf,ts_imu,Ims,ts_cam)
+    # print(1)
 
 
 
