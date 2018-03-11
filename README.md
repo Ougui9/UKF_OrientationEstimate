@@ -18,13 +18,17 @@ Python 3
 ## test Results
 
 ### Orientation comparison
-Result of dataset 1
+Result of dataset 1  
 ![alt text](https://github.com/Ougui9/UKF_OrientaionEstimate/blob/master/res/weightedUKF1.png)
-Result of dataset 2
+
+Result of dataset 2  
 ![alt text](https://github.com/Ougui9/UKF_OrientaionEstimate/blob/master/res/weightedUKF2.png)
-Result of dataset 3
+
+Result of dataset 3  
 ![alt text](https://github.com/Ougui9/UKF_OrientaionEstimate/blob/master/res/weightedUKF8.png)
-Result of dataset 4
+
+Result of dataset 4  
 ![alt text](https://github.com/Ougui9/UKF_OrientaionEstimate/blob/master/res/weightedUKF9.png)
+  
 ### Panarama
 ![alt text](https://github.com/Ougui9/UKF_OrientaionEstimate/blob/master/res/panDs1.jpg)
